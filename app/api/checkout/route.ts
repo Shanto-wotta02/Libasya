@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 
 import {
   getProductDisplayPrice,
+  isManualPaymentWalletAvailable,
   normalizePaymentGateway,
   normalizePaymentMethod,
 } from '@/lib/commerce';
 import prisma from '@/lib/prisma';
+import { getSiteSettings } from '@/lib/site-settings';
 
 type CheckoutItemInput = {
   productId?: unknown;
@@ -57,6 +59,20 @@ export async function POST(request: Request) {
       if (!paymentGateway) {
         return NextResponse.json(
           { error: 'A valid manual payment gateway is required.' },
+          { status: 400 },
+        );
+      }
+
+      const siteSettings = await getSiteSettings();
+      const paymentWalletNumbers = {
+        BKASH: siteSettings.paymentBkashNumber,
+        NAGAD: siteSettings.paymentNagadNumber,
+        ROCKET: siteSettings.paymentRocketNumber,
+      };
+
+      if (!isManualPaymentWalletAvailable(paymentWalletNumbers[paymentGateway])) {
+        return NextResponse.json(
+          { error: `${paymentGateway} payment is currently unavailable.` },
           { status: 400 },
         );
       }

@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { manualPaymentWallets } from '@/lib/commerce';
+import { isManualPaymentWalletAvailable, manualPaymentWallets } from '@/lib/commerce';
 import { cn } from '@/lib/utils';
 import { useCartStore } from '@/store/useCartStore';
 
@@ -72,6 +72,20 @@ export default function CheckoutPage() {
 
   const couponDiscount = appliedCoupon ? Math.round(subtotal * (appliedCoupon.discountPercent / 100)) : 0;
   const total = Math.max(0, subtotal - couponDiscount);
+  const paymentGatewayOptions = paymentGateways.map((gateway) => ({
+    ...gateway,
+    ...wallets[gateway.id],
+    available: isManualPaymentWalletAvailable(wallets[gateway.id].number),
+  }));
+  const firstAvailableGateway = paymentGatewayOptions.find((gateway) => gateway.available);
+  const activePaymentGateway =
+    paymentGatewayOptions.find((gateway) => gateway.id === paymentGateway && gateway.available)
+      ?.id ??
+    firstAvailableGateway?.id ??
+    paymentGateway;
+  const hasAvailableManualGateway = Boolean(firstAvailableGateway);
+  const activePaymentMethod =
+    paymentMethod === 'MANUAL' && !hasAvailableManualGateway ? 'COD' : paymentMethod;
 
   useEffect(() => {
     let mounted = true;
@@ -167,7 +181,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (paymentMethod === 'MANUAL') {
+    if (activePaymentMethod === 'MANUAL') {
       const senderPhone = formData.get('paymentNumber') as string;
       const txnId = formData.get('transactionId') as string;
       if (!senderPhone || !txnId) {
@@ -185,10 +199,10 @@ export default function CheckoutPage() {
           customerName,
           phone,
           address,
-          paymentMethod,
-          paymentGateway: paymentMethod === 'MANUAL' ? paymentGateway : null,
-          paymentNumber: paymentMethod === 'MANUAL' ? (formData.get('paymentNumber') as string) : null,
-          transactionId: paymentMethod === 'MANUAL' ? (formData.get('transactionId') as string) : null,
+          paymentMethod: activePaymentMethod,
+          paymentGateway: activePaymentMethod === 'MANUAL' ? activePaymentGateway : null,
+          paymentNumber: activePaymentMethod === 'MANUAL' ? (formData.get('paymentNumber') as string) : null,
+          transactionId: activePaymentMethod === 'MANUAL' ? (formData.get('transactionId') as string) : null,
           couponCode: appliedCoupon?.code ?? '',
           items: cartItems.map((item) => ({
             productId: item.product.id,
@@ -292,40 +306,80 @@ export default function CheckoutPage() {
               <div>
                 <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
                 <div className="space-y-3">
-                  {paymentMethods.map((method) => (
-                    <label key={method.id} className="flex items-start gap-3 p-4 rounded-lg border bg-[#15110d] border-white/10">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value={method.id}
-                        checked={paymentMethod === method.id}
-                        onChange={() => setPaymentMethod(method.id as 'COD' | 'MANUAL')}
-                        className="mt-1 accent-gold"
-                      />
-                      <div>
-                        <p className="font-medium">{method.label}</p>
-                        <p className="text-sm text-white/50">{method.note}</p>
-                      </div>
-                    </label>
-                  ))}
+                  {paymentMethods.map((method) => {
+                    const methodDisabled = method.id === 'MANUAL' && !hasAvailableManualGateway;
+
+                    return (
+                      <label
+                        key={method.id}
+                        className={cn(
+                          'flex items-start gap-3 p-4 rounded-lg border bg-[#15110d] border-white/10',
+                          methodDisabled ? 'cursor-not-allowed opacity-45 grayscale' : 'cursor-pointer',
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={method.id}
+                          checked={activePaymentMethod === method.id}
+                          disabled={methodDisabled}
+                          onChange={() => {
+                            if (!methodDisabled) {
+                              setPaymentMethod(method.id as 'COD' | 'MANUAL');
+                            }
+                          }}
+                          className="mt-1 accent-gold disabled:cursor-not-allowed"
+                        />
+                        <div>
+                          <p className={cn('font-medium', methodDisabled ? 'text-white/35' : null)}>
+                            {method.label}
+                          </p>
+                          <p className={cn('text-sm', methodDisabled ? 'text-white/30' : 'text-white/50')}>
+                            {methodDisabled ? 'Currently unavailable.' : method.note}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
-              {paymentMethod === 'MANUAL' && (
+              {activePaymentMethod === 'MANUAL' && (
                 <div className="space-y-4 rounded-lg border bg-[#15110d] border-white/10 p-4">
                   <h3 className="text-sm font-semibold text-white/70">Select Gateway</h3>
                   <div className="grid gap-2">
-                    {paymentGateways.map((gw) => (
-                      <label key={gw.id} className="flex items-center justify-between p-3 rounded border border-white/10 bg-[#0d0e10]">
-                        <span>{gw.label}</span>
-                        <input
-                          type="radio"
-                          name="paymentGateway"
-                          value={gw.id}
-                          checked={paymentGateway === gw.id}
-                          onChange={() => setPaymentGateway(gw.id as 'BKASH' | 'NAGAD' | 'ROCKET')}
-                          className="accent-gold"
-                        />
+                    {paymentGatewayOptions.map((gw) => (
+                      <label
+                        key={gw.id}
+                        className={cn(
+                          'flex items-center justify-between p-3 rounded border border-white/10 bg-[#0d0e10]',
+                          gw.available ? 'cursor-pointer' : 'cursor-not-allowed opacity-45 grayscale',
+                        )}
+                      >
+                        <span className={cn(gw.available ? null : 'text-white/35')}>{gw.label}</span>
+                        <span className="flex items-center gap-3">
+                          <span
+                            className={cn(
+                              'text-xs font-medium',
+                              gw.available ? 'text-gold' : 'text-white/30',
+                            )}
+                          >
+                            {gw.available ? gw.number : 'Unavailable'}
+                          </span>
+                          <input
+                            type="radio"
+                            name="paymentGateway"
+                            value={gw.id}
+                            checked={activePaymentGateway === gw.id}
+                            disabled={!gw.available}
+                            onChange={() => {
+                              if (gw.available) {
+                                setPaymentGateway(gw.id);
+                              }
+                            }}
+                            className="accent-gold disabled:cursor-not-allowed"
+                          />
+                        </span>
                       </label>
                     ))}
                   </div>
@@ -333,7 +387,7 @@ export default function CheckoutPage() {
                   <div className="bg-charcoal rounded-lg p-3 text-center">
                     <p className="text-sm text-white/60">Send to:</p>
                     <p className="text-xl font-bold text-gold">
-                      {wallets[paymentGateway].number}
+                      {wallets[activePaymentGateway].number}
                     </p>
                   </div>
 
@@ -354,7 +408,11 @@ export default function CheckoutPage() {
 
               <Button
                 type="submit"
-                disabled={submitting || cartItems.length === 0}
+                disabled={
+                  submitting ||
+                  cartItems.length === 0 ||
+                  (activePaymentMethod === 'MANUAL' && !hasAvailableManualGateway)
+                }
                 className="w-full h-12 bg-gold text-charcoal hover:bg-gold/90"
               >
                 {submitting ? (

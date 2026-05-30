@@ -18,6 +18,12 @@ export type SerializedSiteSettings = {
   heroRibbonText: string;
   heroPrimaryCta: string;
   heroSecondaryCta: string;
+  heroStatOneValue: string;
+  heroStatOneLabel: string;
+  heroStatTwoValue: string;
+  heroStatTwoLabel: string;
+  heroStatThreeValue: string;
+  heroStatThreeLabel: string;
   announcementText: string;
   shopEyebrow: string;
   shopTitle: string;
@@ -81,6 +87,12 @@ export function serializeSiteSettings(
     heroRibbonText: settings.heroRibbonText,
     heroPrimaryCta: settings.heroPrimaryCta,
     heroSecondaryCta: settings.heroSecondaryCta,
+    heroStatOneValue: settings.heroStatOneValue,
+    heroStatOneLabel: settings.heroStatOneLabel,
+    heroStatTwoValue: settings.heroStatTwoValue,
+    heroStatTwoLabel: settings.heroStatTwoLabel,
+    heroStatThreeValue: settings.heroStatThreeValue,
+    heroStatThreeLabel: settings.heroStatThreeLabel,
     announcementText: settings.announcementText,
     shopEyebrow: settings.shopEyebrow,
     shopTitle: settings.shopTitle,

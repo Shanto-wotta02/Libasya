@@ -18,6 +18,12 @@ export const manualPaymentWallets = {
 
 export type ManualPaymentGateway = keyof typeof manualPaymentWallets;
 
+export function isManualPaymentWalletAvailable(number: string) {
+  const normalizedNumber = String(number ?? '').trim();
+
+  return normalizedNumber.length > 0 && normalizedNumber !== '0';
+}
+
 export function calculateCurrentPrice(originalPrice: number, discount: number) {
   const cleanPrice = Math.max(0, Number.isFinite(originalPrice) ? originalPrice : 0);
   const cleanDiscount = Math.min(90, Math.max(0, Math.round(discount || 0)));

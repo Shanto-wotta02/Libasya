@@ -23,7 +23,6 @@ import {
   TicketPercent,
   Trash2,
   UserPlus,
-  WalletCards,
 } from 'lucide-react';
 import { SignOutButton } from '@clerk/nextjs';
 
@@ -403,9 +402,6 @@ export function PrivateAdminDashboard({ admin }: { admin: AdminProfile }) {
 
   const metrics = useMemo(() => {
     const pendingOrders = orders.filter((order) => order.status === 'Pending').length;
-    const openRevenue = orders
-      .filter((order) => order.status !== 'Cancelled')
-      .reduce((total, order) => total + Number(order.totalAmount || 0), 0);
     const activeCoupons = coupons.filter((coupon) => coupon.isActive).length;
     const stockUnits = products.reduce((total, product) => total + product.stock, 0);
     const lowStockProducts = products.filter(
@@ -424,10 +420,10 @@ export function PrivateAdminDashboard({ admin }: { admin: AdminProfile }) {
         icon: Package,
       },
       {
-        label: 'Open Revenue',
-        value: formatPrice(openRevenue),
-        helper: `${pendingOrders} pending order${pendingOrders === 1 ? '' : 's'}`,
-        icon: WalletCards,
+        label: 'Order Queue',
+        value: pendingOrders,
+        helper: `${orders.length} total order${orders.length === 1 ? '' : 's'}`,
+        icon: ClipboardList,
       },
       {
         label: 'Active Coupons',

@@ -50,7 +50,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import type { ManualPaymentGateway } from '@/lib/commerce';
+import { isManualPaymentWalletAvailable, type ManualPaymentGateway } from '@/lib/commerce';
 import { cn } from '@/lib/utils';
 import { useCartStore, type CartItem } from '@/store/useCartStore';
 
@@ -928,23 +928,35 @@ function CartSheet({
   const [submittedOrderTotal, setSubmittedOrderTotal] = useState(0);
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const clearCart = useCartStore((state) => state.clearCart);
-  const selectedPaymentMethod =
-    paymentMethods.find((method) => method.id === paymentMethodId) ?? paymentMethods[0];
-  const selectedPaymentGateway = paymentWallets[paymentGateway];
   const manualGatewayOptions = [
     {
       id: 'BKASH' as const,
       ...paymentWallets.BKASH,
+      available: isManualPaymentWalletAvailable(paymentWallets.BKASH.number),
     },
     {
       id: 'NAGAD' as const,
       ...paymentWallets.NAGAD,
+      available: isManualPaymentWalletAvailable(paymentWallets.NAGAD.number),
     },
     {
       id: 'ROCKET' as const,
       ...paymentWallets.ROCKET,
+      available: isManualPaymentWalletAvailable(paymentWallets.ROCKET.number),
     },
   ];
+  const firstAvailableGateway = manualGatewayOptions.find((gateway) => gateway.available);
+  const activePaymentGateway =
+    manualGatewayOptions.find((gateway) => gateway.id === paymentGateway && gateway.available)
+      ?.id ??
+    firstAvailableGateway?.id ??
+    paymentGateway;
+  const hasAvailableManualGateway = Boolean(firstAvailableGateway);
+  const activePaymentMethodId =
+    paymentMethodId === 'MANUAL' && !hasAvailableManualGateway ? 'COD' : paymentMethodId;
+  const selectedPaymentMethod =
+    paymentMethods.find((method) => method.id === activePaymentMethodId) ?? paymentMethods[0];
+  const selectedPaymentGateway = paymentWallets[activePaymentGateway];
   const couponDiscount = appliedCoupon
     ? Math.round(cartSubtotal * (appliedCoupon.discountPercent / 100))
     : 0;
@@ -1024,8 +1036,8 @@ function CartSheet({
           customerName: String(formData.get('customerName') ?? ''),
           customerPhone: String(formData.get('phone') ?? ''),
           deliveryAddress: String(formData.get('address') ?? ''),
-          paymentMethod: paymentMethodId,
-          paymentGateway: paymentMethodId === 'MANUAL' ? paymentGateway : null,
+          paymentMethod: activePaymentMethodId,
+          paymentGateway: activePaymentMethodId === 'MANUAL' ? activePaymentGateway : null,
           paymentNumber: String(formData.get('paymentNumber') ?? ''),
           transactionId: String(formData.get('transactionId') ?? ''),
           couponCode: appliedCoupon?.code ?? '',
@@ -1239,34 +1251,63 @@ function CartSheet({
               <fieldset className="space-y-2">
                 <legend className="text-xs font-bold text-charcoal/70">Payment method</legend>
                 <div className="grid gap-2">
-                  {paymentMethods.map((method) => (
-                    <label
-                      key={method.id}
-                      className={cn(
-                        'flex cursor-pointer items-start gap-3 rounded-2xl border bg-white/75 p-3 transition-all',
-                        paymentMethodId === method.id
-                          ? 'border-charcoal/30 shadow-sm'
-                          : 'border-charcoal/10 hover:border-charcoal/20',
-                      )}
-                    >
-                      <input
-                        checked={paymentMethodId === method.id}
-                        className="mt-1 accent-charcoal"
-                        name="paymentMethod"
-                        onChange={() => setPaymentMethodId(method.id)}
-                        type="radio"
-                        value={method.id}
-                      />
-                      <span>
-                        <span className="block text-sm font-bold text-charcoal">{method.label}</span>
-                        <span className="mt-0.5 block text-xs leading-5 text-charcoal/58">{method.note}</span>
-                      </span>
-                    </label>
-                  ))}
+                  {paymentMethods.map((method) => {
+                    const methodDisabled = method.id === 'MANUAL' && !hasAvailableManualGateway;
+
+                    return (
+                      <label
+                        key={method.id}
+                        className={cn(
+                          'flex items-start gap-3 rounded-2xl border bg-white/75 p-3 transition-all',
+                          methodDisabled
+                            ? 'cursor-not-allowed border-charcoal/5 bg-charcoal/5 text-charcoal/35'
+                            : 'cursor-pointer',
+                          activePaymentMethodId === method.id && !methodDisabled
+                            ? 'border-charcoal/30 shadow-sm'
+                            : 'border-charcoal/10',
+                          !methodDisabled && activePaymentMethodId !== method.id
+                            ? 'hover:border-charcoal/20'
+                            : null,
+                        )}
+                      >
+                        <input
+                          checked={activePaymentMethodId === method.id}
+                          className="mt-1 accent-charcoal disabled:cursor-not-allowed"
+                          disabled={methodDisabled}
+                          name="paymentMethod"
+                          onChange={() => {
+                            if (!methodDisabled) {
+                              setPaymentMethodId(method.id);
+                            }
+                          }}
+                          type="radio"
+                          value={method.id}
+                        />
+                        <span>
+                          <span
+                            className={cn(
+                              'block text-sm font-bold',
+                              methodDisabled ? 'text-charcoal/35' : 'text-charcoal',
+                            )}
+                          >
+                            {method.label}
+                          </span>
+                          <span
+                            className={cn(
+                              'mt-0.5 block text-xs leading-5',
+                              methodDisabled ? 'text-charcoal/35' : 'text-charcoal/58',
+                            )}
+                          >
+                            {methodDisabled ? 'Currently unavailable.' : method.note}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               </fieldset>
 
-              {paymentMethodId === 'MANUAL' ? (
+              {activePaymentMethodId === 'MANUAL' ? (
                 <div className="space-y-3 rounded-[1.25rem] border border-bronze/20 bg-bronze/10 p-3">
                   <fieldset className="space-y-2">
                     <legend className="text-xs font-bold text-charcoal/70">Select gateway</legend>
@@ -1275,24 +1316,49 @@ function CartSheet({
                         <label
                           key={gateway.id}
                           className={cn(
-                            'flex cursor-pointer items-center justify-between gap-3 rounded-2xl border bg-white/75 p-3 transition-all',
-                            paymentGateway === gateway.id
+                            'flex items-center justify-between gap-3 rounded-2xl border bg-white/75 p-3 transition-all',
+                            gateway.available
+                              ? 'cursor-pointer'
+                              : 'cursor-not-allowed border-charcoal/5 bg-charcoal/5 text-charcoal/35',
+                            activePaymentGateway === gateway.id && gateway.available
                               ? 'border-charcoal/30 shadow-sm'
-                              : 'border-charcoal/10 hover:border-charcoal/20',
+                              : 'border-charcoal/10',
+                            gateway.available && activePaymentGateway !== gateway.id
+                              ? 'hover:border-charcoal/20'
+                              : null,
                           )}
                         >
                           <span className="flex items-center gap-3">
                             <input
-                              checked={paymentGateway === gateway.id}
-                              className="accent-charcoal"
+                              checked={activePaymentGateway === gateway.id}
+                              className="accent-charcoal disabled:cursor-not-allowed"
+                              disabled={!gateway.available}
                               name="paymentGateway"
-                              onChange={() => setPaymentGateway(gateway.id)}
+                              onChange={() => {
+                                if (gateway.available) {
+                                  setPaymentGateway(gateway.id);
+                                }
+                              }}
                               type="radio"
                               value={gateway.id}
                             />
-                            <span className="text-sm font-bold text-charcoal">{gateway.label}</span>
+                            <span
+                              className={cn(
+                                'text-sm font-bold',
+                                gateway.available ? 'text-charcoal' : 'text-charcoal/35',
+                              )}
+                            >
+                              {gateway.label}
+                            </span>
                           </span>
-                          <span className="text-xs font-semibold text-bronze">{gateway.number}</span>
+                          <span
+                            className={cn(
+                              'text-xs font-semibold',
+                              gateway.available ? 'text-bronze' : 'text-charcoal/35',
+                            )}
+                          >
+                            {gateway.available ? gateway.number : 'Unavailable'}
+                          </span>
                         </label>
                       ))}
                     </div>
@@ -1326,7 +1392,11 @@ function CartSheet({
 
               <Button
                 className="h-12 w-full rounded-full bg-charcoal text-ivory shadow-lg shadow-charcoal/15 hover:bg-ink"
-                disabled={cartLines.length === 0 || submittingOrder}
+                disabled={
+                  cartLines.length === 0 ||
+                  submittingOrder ||
+                  (activePaymentMethodId === 'MANUAL' && !hasAvailableManualGateway)
+                }
                 type="submit"
               >
                 {submittingOrder ? 'Submitting...' : 'Submit Order Request'}
