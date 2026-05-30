@@ -1,4 +1,5 @@
-import type { PaymentGateway, PaymentMethod, Prisma } from '@prisma/client';
+export type PaymentGateway = 'BKASH' | 'NAGAD' | 'ROCKET';
+export type PaymentMethod = 'COD' | 'MANUAL';
 
 export const manualPaymentWallets = {
   BKASH: {
@@ -85,7 +86,7 @@ export function parseProductPayload(body: Record<string, unknown>) {
     featured: Boolean(body.featured),
     offerCode: offerCode || null,
     offerEndsAt,
-  } satisfies Prisma.ProductUncheckedCreateInput;
+  };
 }
 
 export function normalizePaymentMethod(value: unknown): PaymentMethod {

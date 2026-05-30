@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
-import type { Prisma } from '@prisma/client';
+import type { InputJsonValue } from '@prisma/client/runtime/client';
 
 import { isAdminRequest } from '@/lib/admin-auth';
 import prisma from '@/lib/prisma';
@@ -59,7 +59,7 @@ export async function PUT(request: NextRequest) {
         title: parseRequiredText(page?.title, 'Page title'),
         eyebrow: parseRequiredText(page?.eyebrow, 'Page eyebrow'),
         description: parseRequiredText(page?.description, 'Page description'),
-        sections: normalizeEditableSections(page?.sections) as Prisma.InputJsonValue,
+        sections: normalizeEditableSections(page?.sections) as InputJsonValue,
       };
 
       const updatedPage = await prisma.sitePage.upsert({

@@ -1,7 +1,5 @@
 import 'server-only';
 
-import type { Prisma } from '@prisma/client';
-
 import { getProductDisplayPrice } from '@/lib/commerce';
 import prisma from '@/lib/prisma';
 
@@ -24,6 +22,9 @@ export type StorefrontProductData = {
 };
 
 type ProductRecord = Awaited<ReturnType<typeof prisma.product.findMany>>[number];
+type ProductWhereInput = NonNullable<
+  NonNullable<Parameters<typeof prisma.product.findMany>[0]>['where']
+>;
 
 export function serializeProduct(product: ProductRecord): StorefrontProductData {
   const pricing = getProductDisplayPrice(product);
@@ -48,7 +49,7 @@ export function serializeProduct(product: ProductRecord): StorefrontProductData 
 }
 
 export async function getStorefrontProducts(
-  where?: Prisma.ProductWhereInput,
+  where?: ProductWhereInput,
 ) {
   const products = await prisma.product.findMany({
     where: {

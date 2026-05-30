@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Prisma } from '@prisma/client';
+import type { JsonValue } from '@prisma/client/runtime/client';
 
 import prisma from '@/lib/prisma';
 
@@ -280,7 +280,11 @@ function getDefaultPage(id: string) {
   );
 }
 
-function normalizeSections(value: Prisma.JsonValue): EditableSection[] {
+type CustomerReviewWhereInput = NonNullable<
+  NonNullable<Parameters<typeof prisma.customerReview.findMany>[0]>['where']
+>;
+
+function normalizeSections(value: JsonValue): EditableSection[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -292,7 +296,7 @@ function normalizeSections(value: Prisma.JsonValue): EditableSection[] {
       continue;
     }
 
-    const data = item as Record<string, Prisma.JsonValue>;
+    const data = item as Record<string, JsonValue>;
     const title = String(data.title ?? '').trim();
     const body = String(data.body ?? '').trim();
     const tone: EditableSection['tone'] = data.tone === 'dark' ? 'dark' : 'light';
@@ -331,7 +335,7 @@ export function serializeSitePage(page: {
   title: string;
   eyebrow: string;
   description: string;
-  sections: Prisma.JsonValue;
+  sections: JsonValue;
   updatedAt: Date;
 }): SerializedSitePage {
   return {
@@ -404,7 +408,7 @@ export async function getCustomerReviews({
   publishedOnly?: boolean;
   take?: number;
 } = {}) {
-  const filters: Prisma.CustomerReviewWhereInput[] = [];
+  const filters: CustomerReviewWhereInput[] = [];
 
   if (publishedOnly) {
     filters.push({ isPublished: true });
