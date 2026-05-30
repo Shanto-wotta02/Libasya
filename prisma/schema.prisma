@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  USER
+  CUSTOMER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+}
+
+enum PaymentMethod {
+  COD
+  MANUAL
+}
+
+enum PaymentGateway {
+  BKASH
+  NAGAD
+  ROCKET
+}
+
+enum OrderStatus {
+  Pending
+  Processing
+  Shipped
+  Completed
+  Cancelled
+}
+
+model User {
+  id                  String           @id @default(cuid())
+  clerkId             String?          @unique
+  name                String
+  email               String           @unique
+  role                Role             @default(USER)
+  reviews             CustomerReview[]
+  sentInvitations     Invitation[]     @relation("SentInvitations")
+  acceptedInvitations Invitation[]     @relation("AcceptedInvitations")
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model Invitation {
+  id           String           @id @default(cuid())
+  email        String
+  role         Role             @default(ADMIN)
+  status       InvitationStatus @default(PENDING)
+  invitedById  String
+  invitedBy    User             @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedById String?
+  acceptedBy   User?            @relation("AcceptedInvitations", fields: [acceptedById], references: [id], onDelete: SetNull)
+  acceptedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([invitedById])
+}
+
+model Product {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  price           Int              @default(0)
+  discountPrice   Int?
+  discountPercent Int              @default(0)
+  originalPrice   Float            @default(0)
+  currentPrice    Float            @default(0)
+  discount        Int              @default(0)
+  imageUrl        String
+  category        String           @default("Premium")
+  stock           Int              @default(0)
+  featured        Boolean          @default(false)
+  offerCode       String?
+  offerEndsAt     DateTime?
+  isArchived      Boolean          @default(false)
+  orderItems      OrderItem[]
+  reviews         CustomerReview[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Coupon {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  discountPercent Int
+  isActive        Boolean  @default(true)
+  expiryDate      DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Order {
+  id                    String          @id @default(cuid())
+  customerName          String
+  phone                 String?
+  address               String?
+  paymentReference      String?
+  subtotal              Int?
+  customerPhone         String
+  deliveryAddress       String
+  paymentMethod         PaymentMethod   @default(COD)
+  paymentGateway        PaymentGateway?
+  paymentNumber         String?
+  transactionId         String?
+  couponCode            String?
+  couponDiscountPercent Int             @default(0)
+  totalAmount           Float
+  status                OrderStatus     @default(Pending)
+  orderItems            OrderItem[]
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Float
+  lineTotal Float
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model SiteSettings {
+  id                      String    @id @default("main")
+  brandName               String    @default("Libasya")
+  brandTagline            String    @default("Premium Punjabi")
+  heroBadge               String    @default("Weekend Drop Live")
+  heroTitle               String    @default("Libasya")
+  heroSubtitle            String    @default("Premium Punjabi wear for Eid, weddings, Jummah, and everyday confidence. Shop polished ready-to-wear pieces with fast delivery.")
+  heroImageUrl            String    @default("https://images.pexels.com/photos/36412149/pexels-photo-36412149.jpeg?auto=compress&cs=tinysrgb&w=2400")
+  heroCardTitle           String    @default("Premium finish")
+  heroCardSubtitle        String    @default("Tailored festive look")
+  heroProductSubtitle     String    @default("Best seller - ready to ship")
+  heroRibbonText          String    @default("Eid Edit 2026")
+  heroPrimaryCta          String    @default("Shop Now")
+  heroSecondaryCta        String    @default("View Offers")
+  announcementText        String    @default("Free delivery on orders over BDT 5,000 | Weekend drop is now live")
+  shopEyebrow             String    @default("Ready to Ship")
+  shopTitle               String    @default("Shop premium Punjabi pieces made for every occasion.")
+  shopDescription         String    @default("Clean cuts, premium fabric feel, easy checkout, and fast delivery across Bangladesh - polished enough for festive events, comfortable enough for daily wear.")
+  trustOneLabel           String    @default("Secure checkout")
+  trustOneText            String    @default("Protected payment flow")
+  trustTwoLabel           String    @default("Fast local delivery")
+  trustTwoText            String    @default("Dispatch within 24 hours")
+  trustThreeLabel         String    @default("Quality checked")
+  trustThreeText          String    @default("Inspected before packing")
+  offerTitle              String    @default("Buy two Punjabi pieces and get free delivery today.")
+  offerSubtitle           String    @default("Use checkout code LIBASYA500 for instant savings on selected ready-to-wear Punjabi pieces.")
+  offerCode               String    @default("LIBASYA500")
+  offerButtonLabel        String    @default("Grab the Offer")
+  offerEndsAt             DateTime?
+  footerDescription       String    @default("Premium Punjabi wear with clean product pages, simple checkout paths, and refined support.")
+  contactEmail            String    @default("support@libasya.com")
+  contactPhone            String    @default("01700-000000")
+  paymentBkashNumber      String    @default("01700-000000")
+  paymentNagadNumber      String    @default("01800-000000")
+  paymentRocketNumber     String    @default("01900-000000")
+  adminInvitationsEnabled Boolean   @default(true)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
+
+model SitePage {
+  id          String   @id
+  title       String
+  eyebrow     String
+  description String
+  sections    Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CustomerReview {
+  id             String   @id @default(cuid())
+  quote          String
+  author         String
+  rating         Int      @default(5)
+  isPublished    Boolean  @default(true)
+  featuredOnHome Boolean  @default(false)
+  displayOrder   Int      @default(0)
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  productId      String?
+  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isPublished])
+  @@index([featuredOnHome])
+  @@index([userId])
+  @@index([productId])
+}
